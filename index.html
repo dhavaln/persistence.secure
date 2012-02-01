@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<script type="text/javascript" src="lib/jquery-1.6.1.js"></script>
+<script type="text/javascript" src="lib/persistence.js"></script>
+<script type="text/javascript" src="lib/persistence.store.sql.js"></script>
+<script type="text/javascript" src="lib/persistence.store.websql.js"></script>
+<script type="text/javascript" src="lib/crypto.aes.js"></script>
+<script type="text/javascript" src="plugin/persistence.security.js"></script>
+
+<script type="text/javascript">
+persistence.store.websql.config(persistence, 'test', 'test database',
+		5 * 1024 * 1024);
+
+USER = persistence.define("USER", {
+	username : "TEXT",
+	password : "TEXT"
+});
+
+persistence.schemaSync();
+</script>
+</head>
+<body>
+	User info:<br>
+	Username <input type="text" id="txtUsername"><br>
+	Password <input type="text" id="txtPassword"><br>
+	<input type="button" id="btnSaveUser" value="Save">
+</body>
+<script type="text/javascript">
+$(document).ready(function(){
+	var secret = "1234";
+	
+	$(document).bind('update_user', function(){
+		console.log("time to update user");
+		USER.all().count(function(cnt){
+		console.log("total users " + cnt);
+			if(cnt > 0){
+				USER.all().one(function(usr){
+					//console.log(usr);
+					
+					persistence.decrypt(usr, secret);
+					
+					$("#txtUsername").val(usr.username);
+					$("#txtPassword").val(usr.password);
+				});
+			}
+		});
+	});
+	
+	$("#btnSaveUser").click(function(){
+		USER.all().count(function(cnt){
+			if(cnt > 0){
+				USER.all().one(function(user){
+					console.log("updating user");
+					user.username = $("#txtUsername").val();
+					user.password = $("#txtPassword").val();
+					
+					persistence.encrypt(user, secret);
+					
+					persistence.flush(function(){
+						$(document).trigger("update_user");
+					});
+				});
+			}else{
+				console.log("adding user");
+				var user = new USER();
+				user.username = $("#txtUsername").val();
+				user.password = $("#txtPassword").val();
+				
+				persistence.encrypt(user, secret);
+				
+				persistence.add(user);
+				persistence.flush(function(){
+					$(document).trigger("update_user");
+				});
+			}
+		});
+	});
+	
+	$(document).trigger("update_user");
+});
+</script>
+</html>
